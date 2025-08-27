@@ -1,14 +1,16 @@
 "use client";
 
-import { useState } from "react";
-// Image not needed in this page
+import { useEffect, useState } from "react";
+import Image from "next/image";
 
 type UploadedItem = {
+  id?: number;
   name: string;
   pathname: string;
   url: string;
   size: number;
   type: string;
+  createdAt?: string;
 };
 
 export default function Home() {
@@ -17,7 +19,24 @@ export default function Home() {
   const [overwrite, setOverwrite] = useState(false);
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<UploadedItem[]>([]);
+  const [dbUrl, setDbUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  async function refreshDb() {
+    try {
+      const res = await fetch("/api/db", { cache: "no-store" });
+      const data = await res.json();
+      if (data?.items && Array.isArray(data.items)) {
+        setItems(data.items as UploadedItem[]);
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  useEffect(() => {
+    refreshDb();
+  }, []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -34,7 +53,13 @@ export default function Home() {
       const res = await fetch("/api/upload", { method: "POST", body: form });
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.error || "Upload failed");
-      setItems(data.items);
+      // uploaded ok: refresh full DB and capture dbUrl if returned
+      if (data.dbUrl) setDbUrl(data.dbUrl);
+      await refreshDb();
+  // clear selection
+  setFiles(null);
+  const fileInput = document.querySelector('input[type=file]') as HTMLInputElement | null;
+  if (fileInput) fileInput.value = '';
     } catch (err) {
       const e = err as Error | undefined;
       setError(e?.message || "Unexpected error");
@@ -88,26 +113,44 @@ export default function Home() {
         </p>
       )}
 
-      {items.length > 0 && (
-        <>
-          <h2 style={{ marginTop: 24 }}>Natijalar ({items.length} ta)</h2>
-          <ul style={{ display: "grid", gap: 10, paddingLeft: 18 }}>
-            {items.map((it) => (
-              <li key={it.url}>
-                <a href={it.url} target="_blank" rel="noreferrer">{it.name}</a>
-                <div style={{ fontSize: 12, opacity: 0.8 }}>
-                  {it.type} • {(it.size / 1024).toFixed(1)}KB • {it.pathname}
-                </div>
-              </li>
-            ))}
-          </ul>
+      <div style={{ marginTop: 28 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+          <h2 style={{ margin: 0 }}>Galereya ({items.length})</h2>
+          {dbUrl && (
+            <div style={{ fontSize: 13, opacity: 0.85 }}>
+              db.json: <a href={dbUrl} target="_blank" rel="noreferrer">{dbUrl}</a>
+            </div>
+          )}
+        </div>
 
-          <h3 style={{ marginTop: 16 }}>JSON</h3>
-          <pre style={{ background: "#111", color: "#0f0", padding: 12, borderRadius: 8 }}>
-            {JSON.stringify(items, null, 2)}
-          </pre>
-        </>
-      )}
+        {items.length === 0 ? (
+          <p style={{ marginTop: 12 }}>Hozircha yozuv yo‘q.</p>
+        ) : (
+          <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
+            {items.map((it) => (
+              <div key={it.pathname} style={{ border: "1px solid #e6e6e6", borderRadius: 8, overflow: "hidden", background: "#fff" }}>
+                <a href={it.url} target="_blank" rel="noreferrer" style={{ display: "block", width: "100%", height: 140, position: "relative" }}>
+                  <Image src={it.url} alt={it.name} fill style={{ objectFit: "cover" }} unoptimized />
+                </a>
+                <div style={{ padding: 10 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>{it.name}</div>
+                  <div style={{ fontSize: 12, color: "#6b7280", marginTop: 6 }}>
+                    {it.createdAt ? new Date(it.createdAt).toLocaleString() + " — " : ""}{Math.round(it.size / 1024)} KB
+                  </div>
+                  <div style={{ marginTop: 8, fontSize: 12 }}>
+                    <a href={it.url} target="_blank" rel="noreferrer">Open</a> • <span style={{ color: "#444" }}>{it.pathname}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <h3 style={{ marginTop: 16 }}>Raw JSON</h3>
+        <pre style={{ background: "#0f172a", color: "#d1fae5", padding: 12, borderRadius: 8, overflowX: "auto" }}>
+          {JSON.stringify(items, null, 2)}
+        </pre>
+      </div>
     </main>
   );
 }

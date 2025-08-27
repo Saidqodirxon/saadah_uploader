@@ -47,9 +47,11 @@ export async function POST(req: Request) {
         contentType: file.type || undefined,
       }) as { url?: string; pathname?: string });
 
+      const finalPath = blob?.pathname || pathname;
+
       results.push({
         name: file.name,
-        pathname,
+        pathname: finalPath,
         url: blob?.url || "",
         size: file.size,
         type: file.type,
