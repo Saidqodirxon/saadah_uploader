@@ -14,6 +14,7 @@ type Item = {
 
 export async function POST(req: NextRequest) {
   try {
+  const token = process.env.BLOB_READ_WRITE_TOKEN || undefined;
     const form = await req.formData();
     const file = form.get("file") as File | null;
     const name = (form.get("name") as string | null)?.trim() || "";
@@ -37,12 +38,13 @@ export async function POST(req: NextRequest) {
       access: "public",
       addRandomSuffix: false,
       contentType,
+      token,
     });
 
   // read existing db.json if present
   let items: Item[] = [];
     try {
-      const meta = await head(DB_KEY);
+  const meta = await head(DB_KEY, { token });
       if (meta?.url) {
         const res = await fetch(meta.url, { cache: "no-store" });
         if (res.ok) {
@@ -68,6 +70,7 @@ export async function POST(req: NextRequest) {
       access: "public",
       addRandomSuffix: false,
       contentType: "application/json",
+      token,
     });
 
     return NextResponse.json({

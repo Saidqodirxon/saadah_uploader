@@ -3,6 +3,7 @@ declare module "@vercel/blob" {
     access?: "public" | "private";
     addRandomSuffix?: boolean;
     contentType?: string;
+  token?: string;
   };
 
   // body can be a File, Blob, string (for JSON), ArrayBuffer, or ReadableStream
@@ -12,5 +13,9 @@ declare module "@vercel/blob" {
     opts?: PutOptions
   ): Promise<{ url: string }>;
 
-  export function head(key: string): Promise<{ url?: string } | null>;
+  export type HeadOptions = {
+    token?: string;
+  };
+
+  export function head(key: string, opts?: HeadOptions): Promise<{ url?: string } | null>;
 }
