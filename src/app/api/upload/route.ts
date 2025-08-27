@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { put } from "@vercel/blob";
+import { put, head } from "@vercel/blob";
 
 export const runtime = "nodejs";
 
@@ -56,7 +56,55 @@ export async function POST(req: Request) {
       });
     }
 
-    return NextResponse.json({ ok: true, count: results.length, items: results });
+    // -- db.json yangilash: mavjud yozuvlarni o'qib, yangi yozuvlarni tepaga qo'shamiz
+    type Item = {
+      id: number;
+      name: string;
+      pathname: string;
+      url: string;
+      size: number;
+      type: string;
+      createdAt: string;
+    };
+
+    const DB_KEY = "db.json";
+    let items: Item[] = [];
+    try {
+      const meta = await head(DB_KEY, { token });
+      if (meta?.url) {
+        const res = await fetch(meta.url, { cache: "no-store" });
+        if (res.ok) {
+          const parsed = await res.json();
+          if (Array.isArray(parsed)) items = parsed;
+        }
+      }
+    } catch {
+      // ignore if db.json doesn't exist yet
+    }
+
+    const now = Date.now();
+    const newRows: Item[] = results.map((r, idx) => ({
+      id: now + idx,
+      name: r.name,
+      pathname: r.pathname,
+      url: r.url,
+      size: r.size,
+      type: r.type,
+      createdAt: new Date().toISOString(),
+    }));
+
+    // put new rows at the front
+    items = [...newRows.reverse(), ...items];
+
+    const dbPut = await put(DB_KEY, JSON.stringify(items, null, 2), {
+      access: "public",
+      addRandomSuffix: false,
+      allowOverwrite: true,
+      contentType: "application/json",
+      token,
+    });
+
+  return NextResponse.json({ ok: true, count: results.length, items: newRows, total: items.length, dbUrl: dbPut.url });
   } catch (err) {
     const e = err as Error | undefined;
     return NextResponse.json({ ok: false, error: e?.message || "Upload failed" }, { status: 500 });
