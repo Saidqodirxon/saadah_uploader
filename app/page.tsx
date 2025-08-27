@@ -1,163 +1,114 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Image from "next/image";
+import { useState } from "react";
+// Image not needed in this page
 
-type Item = {
-  id: number;
+type UploadedItem = {
   name: string;
-  imageUrl: string;
+  pathname: string;
+  url: string;
   size: number;
   type: string;
-  createdAt: string;
 };
 
-export default function Page() {
-  const [name, setName] = useState("");
-  const [file, setFile] = useState<File | null>(null);
-  const [items, setItems] = useState<Item[]>([]);
+export default function Home() {
+  const [files, setFiles] = useState<FileList | null>(null);
+  const [prefix, setPrefix] = useState("uploads");
+  const [overwrite, setOverwrite] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [jsonUrl, setJsonUrl] = useState<string | null>(null);
+  const [items, setItems] = useState<UploadedItem[]>([]);
   const [error, setError] = useState<string | null>(null);
-
-  async function refreshDb() {
-    const res = await fetch("/api/db", { cache: "no-store" });
-    const data = await res.json();
-    if (data?.items) setItems(data.items);
-  }
-
-  useEffect(() => {
-    refreshDb();
-  }, []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!file) {
-      setError("Iltimos, rasm tanlang.");
-      return;
-    }
-    if (!name.trim()) {
-      setError("Iltimos, nom kiriting.");
-      return;
-    }
+    if (!files || files.length === 0) return;
 
+    const form = new FormData();
+    Array.from(files).forEach((f) => form.append("files", f));
+    form.append("prefix", prefix);
+    if (overwrite) form.append("overwrite", "1");
+
+    setLoading(true);
     try {
-      setLoading(true);
-      const fd = new FormData();
-      fd.append("name", name);
-      fd.append("file", file);
-
-      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      const res = await fetch("/api/upload", { method: "POST", body: form });
       const data = await res.json();
-
-      if (!res.ok) {
-        setError(data?.error || "Yuklashda xatolik");
-      } else {
-        setImageUrl(data.imageUrl);
-        setJsonUrl(data.jsonUrl);
-        setName("");
-        setFile(null);
-        await refreshDb();
-      }
+      if (!res.ok || !data.ok) throw new Error(data.error || "Upload failed");
+      setItems(data.items);
     } catch (err) {
       const e = err as Error | undefined;
-      setError(e?.message || "Xatolik");
+      setError(e?.message || "Unexpected error");
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <main style={{ maxWidth: 760, margin: "40px auto", padding: 16, fontFamily: "sans-serif" }}>
-      <h1 style={{ marginBottom: 16 }}>Vercel Blob — Rasm yuklash + JSON saqlash</h1>
+    <main style={{ maxWidth: 820, margin: "40px auto", padding: 16 }}>
+      <h1>Yuklash</h1>
 
-      <form onSubmit={onSubmit} style={{ display: "grid", gap: 12, marginBottom: 24 }}>
+      <form onSubmit={onSubmit} style={{ display: "grid", gap: 12 }}>
         <label>
-          Nom (name):
+          Papka (prefix):
           <input
-            type="text"
-            placeholder="Kitob nomi, foydalanuvchi ismi va h.k."
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            style={{ width: "100%", padding: 8, marginTop: 4 }}
+            value={prefix}
+            onChange={(e) => setPrefix(e.target.value)}
+            placeholder="uploads/bookloop"
+            style={{ width: "100%", padding: 8 }}
           />
         </label>
 
         <label>
-          Rasm (file):
+          Fayllar:
           <input
             type="file"
-            accept="image/*"
-            onChange={(e) => setFile(e.target.files?.[0] || null)}
-            style={{ marginTop: 4 }}
+            multiple
+            onChange={(e) => setFiles(e.target.files)}
+            style={{ width: "100%", padding: 8 }}
           />
         </label>
 
-        <button
-          type="submit"
-          disabled={loading}
-          style={{
-            padding: "10px 16px",
-            cursor: loading ? "not-allowed" : "pointer",
-            background: "#111827",
-            color: "#fff",
-            borderRadius: 8,
-            border: "none"
-          }}
-        >
+        <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <input
+            type="checkbox"
+            checked={overwrite}
+            onChange={(e) => setOverwrite(e.target.checked)}
+          />
+          Bir xil nom bo‘lsa ustidan yozish (overwrite)
+        </label>
+
+        <button disabled={loading} type="submit" style={{ padding: "10px 14px" }}>
           {loading ? "Yuklanmoqda..." : "Yuklash"}
         </button>
-
-        {error && <p style={{ color: "red", marginTop: 4 }}>{error}</p>}
       </form>
 
-      {imageUrl && (
-        <div style={{ marginBottom: 20 }}>
-          <h3>Yuklangan rasm URL:</h3>
-          <a href={imageUrl} target="_blank" rel="noreferrer">{imageUrl}</a>
-          <div style={{ marginTop: 8 }}>
-            {/* preview */}
-            <Image src={imageUrl || ""} alt="Uploaded" width={300} height={200} unoptimized style={{ borderRadius: 8, maxWidth: "100%", height: "auto" }} />
-          </div>
-        </div>
+      {error && (
+        <p style={{ color: "crimson", marginTop: 12 }}>
+          Xato: {error}
+        </p>
       )}
 
-      {jsonUrl && (
-        <div style={{ marginBottom: 20 }}>
-          <h3>db.json URL:</h3>
-          <a href={jsonUrl} target="_blank" rel="noreferrer">{jsonUrl}</a>
-        </div>
-      )}
-
-      <hr style={{ margin: "24px 0" }} />
-
-      <section>
-        <h2>Saqlangan yozuvlar (db.json):</h2>
-        {items.length === 0 ? (
-          <p>Hozircha yozuv yo‘q.</p>
-        ) : (
-          <ul style={{ display: "grid", gap: 12, padding: 0, listStyle: "none", marginTop: 12 }}>
-            {items.map((it: Item) => (
-              <li key={it.id} style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: 12 }}>
-                <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                  <Image src={it.imageUrl} alt={it.name} width={80} height={80} unoptimized style={{ objectFit: "cover", borderRadius: 8 }} />
-                  <div>
-                    <div style={{ fontWeight: 600 }}>{it.name}</div>
-                    <div style={{ fontSize: 12, color: "#6b7280" }}>
-                      {new Date(it.createdAt).toLocaleString()} — {Math.round(it.size / 1024)} KB
-                    </div>
-                    <a href={it.imageUrl} target="_blank" rel="noreferrer" style={{ fontSize: 13 }}>
-                      Open image
-                    </a>
-                  </div>
+      {items.length > 0 && (
+        <>
+          <h2 style={{ marginTop: 24 }}>Natijalar ({items.length} ta)</h2>
+          <ul style={{ display: "grid", gap: 10, paddingLeft: 18 }}>
+            {items.map((it) => (
+              <li key={it.url}>
+                <a href={it.url} target="_blank" rel="noreferrer">{it.name}</a>
+                <div style={{ fontSize: 12, opacity: 0.8 }}>
+                  {it.type} • {(it.size / 1024).toFixed(1)}KB • {it.pathname}
                 </div>
               </li>
             ))}
           </ul>
-        )}
-      </section>
+
+          <h3 style={{ marginTop: 16 }}>JSON</h3>
+          <pre style={{ background: "#111", color: "#0f0", padding: 12, borderRadius: 8 }}>
+            {JSON.stringify(items, null, 2)}
+          </pre>
+        </>
+      )}
     </main>
   );
 }
+

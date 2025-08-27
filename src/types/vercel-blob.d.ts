@@ -2,6 +2,7 @@ declare module "@vercel/blob" {
   export type PutOptions = {
     access?: "public" | "private";
     addRandomSuffix?: boolean;
+  allowOverwrite?: boolean;
     contentType?: string;
   token?: string;
   };
