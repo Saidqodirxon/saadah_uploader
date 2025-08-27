@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 
 type Item = {
   id: number;
@@ -118,7 +119,7 @@ export default function Page() {
           <a href={imageUrl} target="_blank" rel="noreferrer">{imageUrl}</a>
           <div style={{ marginTop: 8 }}>
             {/* preview */}
-            <img src={imageUrl} alt="Uploaded" style={{ maxWidth: 300, borderRadius: 8 }} />
+            <Image src={imageUrl || ""} alt="Uploaded" width={300} height={200} unoptimized style={{ borderRadius: 8, maxWidth: "100%", height: "auto" }} />
           </div>
         </div>
       )}
@@ -141,7 +142,7 @@ export default function Page() {
             {items.map((it: Item) => (
               <li key={it.id} style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: 12 }}>
                 <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                  <img src={it.imageUrl} alt={it.name} style={{ width: 80, height: 80, objectFit: "cover", borderRadius: 8 }} />
+                  <Image src={it.imageUrl} alt={it.name} width={80} height={80} unoptimized style={{ objectFit: "cover", borderRadius: 8 }} />
                   <div>
                     <div style={{ fontWeight: 600 }}>{it.name}</div>
                     <div style={{ fontSize: 12, color: "#6b7280" }}>
