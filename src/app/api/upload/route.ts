@@ -3,6 +3,15 @@ import { put, head } from "@vercel/blob";
 
 const DB_KEY = "db.json";
 
+type Item = {
+  id: number;
+  name: string;
+  imageUrl: string;
+  size: number;
+  type: string;
+  createdAt: string;
+};
+
 export async function POST(req: NextRequest) {
   try {
     const form = await req.formData();
@@ -23,14 +32,15 @@ export async function POST(req: NextRequest) {
       .replace(/^-+|-+$/g, "");
     const key = `uploads/${Date.now()}-${safeName || "item"}.${ext}`;
 
+    const contentType = file.type || undefined;
     const uploaded = await put(key, file, {
       access: "public",
       addRandomSuffix: false,
-      contentType: (file as any).type || undefined,
+      contentType,
     });
 
-    // read existing db.json if present
-    let items: any[] = [];
+  // read existing db.json if present
+  let items: Item[] = [];
     try {
       const meta = await head(DB_KEY);
       if (meta?.url) {
@@ -44,12 +54,12 @@ export async function POST(req: NextRequest) {
       // first time: db.json may not exist
     }
 
-    const row = {
+    const row: Item = {
       id: Date.now(),
       name,
       imageUrl: uploaded.url,
-      size: (file as any).size,
-      type: (file as any).type,
+      size: file.size,
+      type: file.type,
       createdAt: new Date().toISOString(),
     };
     items.unshift(row);
@@ -67,9 +77,10 @@ export async function POST(req: NextRequest) {
       item: row,
       total: items.length,
     });
-  } catch (err: any) {
+  } catch (err) {
+    const e = err as Error | undefined;
     return NextResponse.json(
-      { error: err?.message || "upload failed" },
+      { error: e?.message || "upload failed" },
       { status: 500 }
     );
   }

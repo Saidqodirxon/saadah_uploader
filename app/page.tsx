@@ -60,8 +60,9 @@ export default function Page() {
         setFile(null);
         await refreshDb();
       }
-    } catch (err: any) {
-      setError(err?.message || "Xatolik");
+    } catch (err) {
+      const e = err as Error | undefined;
+      setError(e?.message || "Xatolik");
     } finally {
       setLoading(false);
     }
@@ -137,7 +138,7 @@ export default function Page() {
           <p>Hozircha yozuv yo‘q.</p>
         ) : (
           <ul style={{ display: "grid", gap: 12, padding: 0, listStyle: "none", marginTop: 12 }}>
-            {items.map((it) => (
+            {items.map((it: Item) => (
               <li key={it.id} style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: 12 }}>
                 <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
                   <img src={it.imageUrl} alt={it.name} style={{ width: 80, height: 80, objectFit: "cover", borderRadius: 8 }} />
